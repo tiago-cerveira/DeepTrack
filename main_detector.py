@@ -15,7 +15,7 @@ class InitParams:
         self.video_path = '/home/tiago/maritime_data_seq/lanchaArgos_clip3'
         self.groundtruth_file = 'groundtruth_rect_detection.txt'
 
-        self.command = 'python tracker_handler.py '
+        self.command = 'python tracker_handler.py ' + self.video_path + ' '
 
         self.num_trackers = 0
         self.num_detections = 0
@@ -46,13 +46,17 @@ def main():
 
                 thread = Thread(target=threaded_function, args=((params.command + bounding_box), ))
                 thread.start()
-
                 params.num_detections += 1
                 params.num_trackers += 1
+                time.sleep(3)
+                print("sending index:", img_index)
+                pub.send('next_img', str(img_index))
+
                 continue
 
         # using attention model
         else:
+            print("sending index:", img_index)
             pub.send('next_img', str(img_index))
 
             img = cv2.imread(params.video_path + '/img/' + img_seq[img_index], 1)
