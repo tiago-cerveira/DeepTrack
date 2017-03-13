@@ -4,9 +4,7 @@ import zmq
 
 class Consumer:
 
-    def __init__(self, topicfilter=None):
-
-        port = "5557"
+    def __init__(self, port, topicfilter=None):
 
         # Socket to talk to server
         context = zmq.Context()
@@ -18,7 +16,9 @@ class Consumer:
 
     def recv_msg(self):
         string = self.socket.recv()
-        topic, messagedata = string.split()
+        # split string on first blank space
+        topic, messagedata = string.split(' ', 1)
+        # print messagedata
         return messagedata
 
     def recv_msg_no_block(self):

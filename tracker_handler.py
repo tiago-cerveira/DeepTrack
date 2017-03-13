@@ -9,6 +9,7 @@ from comm_publisher import Publisher
 import zmq
 from utils import *
 from tracker import Tracker
+import time
 
 
 class InitParams:
@@ -29,7 +30,7 @@ class InitParams:
         self.peak_to_sidelobe_ratio_threshold = 6       # Set to 0 to disable (Detect if the target is lost)
         self.rigid_transformation_estimation = False    # Try to detect camera rotation
 
-        self.visualization = True
+        self.visualization = False
         self.debug = False
 
         self.init_pos = np.array((0, 0))
@@ -51,6 +52,10 @@ class Kernel:
 
 
 def main():
+
+    pub = Publisher('5558')
+    sub1 = Consumer('5557', 'next_img')
+    sub2 = Consumer('5557', 'kill')
 
     params = InitParams()
 
@@ -76,10 +81,11 @@ def main():
 
     results = np.zeros((len(img_seq), 4))
 
-    sub1 = Consumer('next_img')
-    sub2 = Consumer('kill')
+    # this need to go!
+    time.sleep(0.2)
+    pub.send('alive', 'True')
 
-    print("Ready to consume messages")
+    print("tracker is ready to consume messages")
     while True:
 
         img_index = int(sub1.recv_msg())
@@ -102,12 +108,14 @@ def main():
             if not lost:
                 tracker1.train(img, False, xtf)  # Update the model with the new infomation
 
+        cvrect = np.array((results[params.frame, 1] - results[params.frame, 3] / 2,
+                           results[params.frame, 0] - results[params.frame, 2] / 2,
+                           results[params.frame, 1] + results[params.frame, 3] / 2,
+                           results[params.frame, 0] + results[params.frame, 2] / 2))
+
         if params.visualization:
             # Draw a rectangle in the estimated location and show the result
-            cvrect = np.array((results[params.frame, 1] - results[params.frame, 3] / 2,
-                               results[params.frame, 0] - results[params.frame, 2] / 2,
-                               results[params.frame, 1] + results[params.frame, 3] / 2,
-                               results[params.frame, 0] + results[params.frame, 2] / 2))
+
             cv2.rectangle(img, (cvrect[0].astype(int), cvrect[1].astype(int)),
                           (cvrect[2].astype(int), cvrect[3].astype(int)), (0, 255, 0), 2)
             cv2.namedWindow("Window", cv2.WINDOW_NORMAL)
@@ -116,6 +124,7 @@ def main():
             cv2.waitKey(1)
 
         params.frame += 1
+        pub.send('bb', str((cvrect).astype(np.int)))
 
     np.savetxt('results.txt', results, delimiter=',', fmt='%d')
 

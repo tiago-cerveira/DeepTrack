@@ -201,7 +201,7 @@ class Tracker:
         # self.psr = np.append(self.psr, (np.max(translation_response) - np.mean(response_aux))/(np.std(response_aux)))
         # print self.psr
         self.psr = (np.max(translation_response) - np.mean(translation_response))/(np.std(translation_response))
-        print("psr:", round(self.psr, 2))
+        # print("psr:", round(self.psr, 2))
         if self.psr < self.parameters.peak_to_sidelobe_ratio_threshold:
             self.lost = True
         else:

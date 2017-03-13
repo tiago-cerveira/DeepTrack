@@ -6,8 +6,7 @@ import time
 
 class Publisher:
 
-    def __init__(self):
-        port = "5557"
+    def __init__(self, port):
 
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
