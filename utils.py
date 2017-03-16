@@ -14,6 +14,7 @@ def load_video_sequence(groundtruth_file=None, video_path=None):
 
 
 def threaded_function(arg):
+    # print arg
     os.system(arg)
 
 

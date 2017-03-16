@@ -25,7 +25,7 @@ def get_scale_sample(im, pos, base_target_sz, scale_factors, scale_window, scale
         number_of_scales = len(scale_factors)
         n = scale_model_sz[1] * scale_model_sz[0]
         out = np.zeros((n.astype(int), number_of_scales))
-
+        print('scale factors', scale_factors)
         for s in xrange(0, number_of_scales):
             patch_sz = np.floor(base_target_sz * scale_factors[s])
 
@@ -133,11 +133,11 @@ class Tracker:
                                  np.hanning(self.yf.shape[1]).reshape(1, self.yf.shape[1]))
 
         # Cosine window with the size of the scale filter (1D)
-        if np.mod(self.parameters.number_of_scales, 2) == 0:
-            self.scale_window = np.single(np.hanning(self.parameters.number_of_scales + 1))
-            self.scale_window = self.scale_window[1:]
-        else:
-            self.scale_window = np.single(np.hanning(self.parameters.number_of_scales))
+        # if np.mod(self.parameters.number_of_scales, 2) == 0:
+        #     self.scale_window = np.single(np.hanning(self.parameters.number_of_scales + 1))
+        #     self.scale_window = self.scale_window[1:]
+        # else:
+        self.scale_window = np.single(np.hanning(self.parameters.number_of_scales))
 
         # Scale Factors [...0.98 1 1.02 1.0404 ...] NOTE: it is not a incremental value (see the scaleFactors values)
         ss = np.arange(1, self.parameters.number_of_scales + 1)
@@ -167,6 +167,30 @@ class Tracker:
         self.model_xf = None
         self.sf_den = None
         self.sf_num = None
+
+    def update_tracker(self, pos, size):
+        self.base_target_sz = size
+
+        # Window size, taking padding into account
+        self.window_sz = np.floor(np.array((max(self.base_target_sz),
+                                            max(self.base_target_sz))) * (1 + self.parameters.padding))
+
+        sz = self.window_sz
+        sz = np.floor(sz / self.parameters.cell_size)
+        self.l1_patch_num = np.floor(self.window_sz / self.parameters.cell_size)
+
+        # Desired translation filter output (2d gaussian shaped), bandwidth
+        # Proportional to target size
+        output_sigma = np.sqrt(
+            np.prod(self.base_target_sz)) * self.parameters.output_sigma_factor / self.parameters.cell_size
+        self.yf = np.fft.fft2(desiredResponse.gaussian_response_2d(output_sigma, self.l1_patch_num))
+
+        # Cosine window with the size of the translation filter (2D)
+        self.cos_window = np.dot(np.hanning(self.yf.shape[0]).reshape(self.yf.shape[0], 1),
+                                 np.hanning(self.yf.shape[1]).reshape(1, self.yf.shape[1]))
+
+        self.pos = pos
+
 
     def detect(self, im):
         # Extract the features to detect.
@@ -286,7 +310,7 @@ class Tracker:
 
         im_patch = im[np.ix_(ys.astype(int), xs.astype(int))]
 
-        # im_patch = cv2.resize(im_patch, (model_sz[1].astype(int), model_sz[0].astype(int)))
+        im_patch = cv2.resize(im_patch, (100, 100))
 
         if first:
             self.create_tf_graph(im_patch)
@@ -298,7 +322,7 @@ class Tracker:
     def create_tf_graph(self, img):
         self.graph = tf.Graph()
         with self.graph.as_default():
-            self.image = tf.placeholder(tf.float32, shape=img.shape)
+            self.image = tf.placeholder(tf.float32, shape=(100, 100, 3))
             processed_image = preprocess_image(self.image, image_size, image_size)
             processed_images = tf.expand_dims(processed_image, 0)
 

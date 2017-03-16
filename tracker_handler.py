@@ -43,6 +43,8 @@ class InitParams:
 
         self.frame = 0
 
+        self.id = 0
+
 
 # Structure with kernel parameters
 class Kernel:
@@ -53,9 +55,10 @@ class Kernel:
 
 def main():
 
-    pub = Publisher('5558')
-    sub1 = Consumer('5557', 'next_img')
-    sub2 = Consumer('5557', 'kill')
+    pub = Publisher('5557')
+    sub1 = Consumer('5551', 'next_img')
+    sub2 = Consumer('5551', 'kill')
+    sub3 = Consumer('5551', 'update')
 
     params = InitParams()
 
@@ -63,6 +66,8 @@ def main():
     img_seq = load_video_sequence(groundtruth_file=None, video_path=video_path)
     bounding_box = get_bounding_box()
     # print("i'm the tracker and received:", bounding_box)
+
+    params.id = sys.argv[6]
 
     # Initial position
     pos = np.array([int(bounding_box[1]), int(bounding_box[0])])
@@ -79,13 +84,15 @@ def main():
     # List of image files
     params.video_path = video_path
 
-    results = np.zeros((len(img_seq), 4))
+    # results = np.zeros((len(img_seq), 4))
 
     # this need to go!
-    time.sleep(0.2)
-    pub.send('alive', 'True')
+    time.sleep(0.5)
+    pub.send('alive', params.id)
 
-    print("tracker is ready to consume messages")
+    starting = True
+
+    print("new tracker is ready to consume messages")
     while True:
 
         img_index = int(sub1.recv_msg())
@@ -93,25 +100,51 @@ def main():
         # print(video_path + '/img/' + img_seq[img_index])
         img = cv2.imread(video_path + '/img/' + img_seq[img_index], 1)
 
-        if sub2.recv_msg_no_block():
-            print("received kill command, now exiting")
+        if sub2.recv_msg_no_block() == params.id:
+            print("tracker received kill command, now exiting")
             break
+        msg = sub3.recv_msg_no_block()
+        if msg is not False:
+            split_msg = msg.split()
+            print(msg)
+            if split_msg[0] == params.id:
+                params.frame = 0
+                print("SHOULD BE UPDATING")
+                # Initial position
+                pos = np.array([int(split_msg[2]), int(split_msg[1])])
+                target_sz = np.array([int(split_msg[4]), int(split_msg[3])])
+                # params.init_pos = np.floor(pos + np.floor(target_sz / 2))
+
+                # Current position
+                params.pos = params.init_pos
+
+                # Size of target
+                # params.target_size = np.floor(target_sz)
+
+                # TODO: Update tracker parameters
+                tracker1.update_tracker((int(split_msg[1]), int(split_msg[2])), (int(split_msg[3]), int(split_msg[4])))
+
+
+                print("GOT OUTSIDE")
+
 
         # Initialize the tracker using the first frame
         if params.frame == 0:
-            tracker1 = Tracker(img, params)
+            if starting:
+                tracker1 = Tracker(img, params)
+                starting = False
             tracker1.train(img, True)
-            results[params.frame, :] = np.array(
+            results = np.array(
                 (pos[0] + np.floor(target_sz[0] / 2), pos[1] + np.floor(target_sz[1] / 2), target_sz[0], target_sz[1]))
         else:
-            results[params.frame, :], lost, xtf = tracker1.detect(img)  # Detect the target in the next frame
+            results, lost, xtf = tracker1.detect(img)  # Detect the target in the next frame
             if not lost:
                 tracker1.train(img, False, xtf)  # Update the model with the new infomation
-
-        cvrect = np.array((results[params.frame, 1] - results[params.frame, 3] / 2,
-                           results[params.frame, 0] - results[params.frame, 2] / 2,
-                           results[params.frame, 1] + results[params.frame, 3] / 2,
-                           results[params.frame, 0] + results[params.frame, 2] / 2))
+        print(results)
+        cvrect = np.array((results[1] - results[3] / 2,
+                           results[0] - results[2] / 2,
+                           results[1] + results[3] / 2,
+                           results[0] + results[2] / 2))
 
         if params.visualization:
             # Draw a rectangle in the estimated location and show the result
@@ -124,9 +157,11 @@ def main():
             cv2.waitKey(1)
 
         params.frame += 1
-        pub.send('bb', str((cvrect).astype(np.int)))
+        # print("tracker side:", str((cvrect).astype(np.int)))
+        pub.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0])))
 
-    np.savetxt('results.txt', results, delimiter=',', fmt='%d')
+    # np.savetxt('results.txt', results, delimiter=',', fmt='%d')
+    pub.close()
 
 
 

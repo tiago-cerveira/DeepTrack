@@ -24,8 +24,8 @@ class Consumer:
     def recv_msg_no_block(self):
         try:
             string = self.socket.recv(flags=zmq.NOBLOCK)
-            # topic, messagedata = string.split()
-            return True
+            topic, messagedata = string.split(' ', 1)
+            return messagedata
 
         except zmq.Again as e:
-            pass
+            return False
