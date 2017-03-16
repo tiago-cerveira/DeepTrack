@@ -7,10 +7,12 @@ class Consumer:
     def __init__(self, port, topicfilter=None):
 
         # Socket to talk to server
-        context = zmq.Context()
-        self.socket = context.socket(zmq.SUB)
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.SUB)
 
-        self.socket.connect("tcp://localhost:%s" % port)
+        self.socket.connect("tcp://127.0.0.101:%s" % port)
+        # self.socket.connect("tcp://127.0.0.101:5553")
+
 
         self.socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
 
@@ -29,3 +31,7 @@ class Consumer:
 
         except zmq.Again as e:
             return False
+
+    def close(self):
+        self.socket.close()
+        self.context.term()

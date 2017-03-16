@@ -7,10 +7,9 @@ import time
 class Publisher:
 
     def __init__(self, port):
-
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:%s" % port)
+        self.socket.bind("tcp://127.0.0.101:%s" % port)
 
     def send(self, topic, message_data):
 

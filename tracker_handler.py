@@ -55,11 +55,6 @@ class Kernel:
 
 def main():
 
-    pub = Publisher('5557')
-    sub1 = Consumer('5551', 'next_img')
-    sub2 = Consumer('5551', 'kill')
-    sub3 = Consumer('5551', 'update')
-
     params = InitParams()
 
     video_path = get_video_path()
@@ -85,6 +80,12 @@ def main():
     params.video_path = video_path
 
     # results = np.zeros((len(img_seq), 4))
+    # time.sleep(0.5)
+    # pub = Publisher(str(5552 + int(params.id)/10))
+    pub = Publisher('5552')
+    sub1 = Consumer('5551', 'next_img')
+    sub2 = Consumer('5551', 'kill')
+    sub3 = Consumer('5551', 'update')
 
     # this need to go!
     time.sleep(0.5)
@@ -99,34 +100,31 @@ def main():
         # print(img_index)
         # print(video_path + '/img/' + img_seq[img_index])
         img = cv2.imread(video_path + '/img/' + img_seq[img_index], 1)
-
-        if sub2.recv_msg_no_block() == params.id:
-            print("tracker received kill command, now exiting")
+        msg = sub2.recv_msg_no_block()
+        if msg == params.id or msg == 'all':
             break
+
         msg = sub3.recv_msg_no_block()
         if msg is not False:
             split_msg = msg.split()
-            print(msg)
             if split_msg[0] == params.id:
-                params.frame = 0
-                print("SHOULD BE UPDATING")
-                # Initial position
-                pos = np.array([int(split_msg[2]), int(split_msg[1])])
-                target_sz = np.array([int(split_msg[4]), int(split_msg[3])])
-                # params.init_pos = np.floor(pos + np.floor(target_sz / 2))
-
-                # Current position
-                params.pos = params.init_pos
-
-                # Size of target
-                # params.target_size = np.floor(target_sz)
-
-                # TODO: Update tracker parameters
-                tracker1.update_tracker((int(split_msg[1]), int(split_msg[2])), (int(split_msg[3]), int(split_msg[4])))
-
-
-                print("GOT OUTSIDE")
-
+                print("tracker received update command, now exiting")
+                break
+                # print("SHOULD BE UPDATING")
+                # params.frame = 0
+                #
+                # # Initial position
+                # pos = np.array([int(split_msg[2]), int(split_msg[1])])
+                # target_sz = np.array([int(split_msg[4]), int(split_msg[3])])
+                # # params.init_pos = np.floor(pos + np.floor(target_sz / 2))
+                #
+                # # Current position
+                # params.pos = params.init_pos
+                #
+                # # Size of target
+                # # params.target_size = np.floor(target_sz)
+                #
+                # tracker1.update_tracker((int(split_msg[1]), int(split_msg[2])), (int(split_msg[3]), int(split_msg[4])))
 
         # Initialize the tracker using the first frame
         if params.frame == 0:
@@ -140,7 +138,7 @@ def main():
             results, lost, xtf = tracker1.detect(img)  # Detect the target in the next frame
             if not lost:
                 tracker1.train(img, False, xtf)  # Update the model with the new infomation
-        print(results)
+        # print(results)
         cvrect = np.array((results[1] - results[3] / 2,
                            results[0] - results[2] / 2,
                            results[1] + results[3] / 2,
@@ -161,9 +159,10 @@ def main():
         pub.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0])))
 
     # np.savetxt('results.txt', results, delimiter=',', fmt='%d')
-    pub.close()
-
-
+    # pub.close()
+    # sub1.close()
+    # sub2.close()
+    # sub3.close()
 
 if __name__ == "__main__":
     main()

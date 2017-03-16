@@ -25,7 +25,7 @@ def get_scale_sample(im, pos, base_target_sz, scale_factors, scale_window, scale
         number_of_scales = len(scale_factors)
         n = scale_model_sz[1] * scale_model_sz[0]
         out = np.zeros((n.astype(int), number_of_scales))
-        print('scale factors', scale_factors)
+        # print('scale factors', scale_factors)
         for s in xrange(0, number_of_scales):
             patch_sz = np.floor(base_target_sz * scale_factors[s])
 
