@@ -241,7 +241,7 @@ class Tracker:
         # print np.array((col,row))
 
         # Return the position (center of mass in image coordinates) and the lost flag.
-        return np.array([self.pos[0], self.pos[1], self.target_sz[0], self.target_sz[1]]), self.lost, xtf
+        return np.array([self.pos[0], self.pos[1], self.target_sz[0], self.target_sz[1], self.psr]), self.lost, xtf
 
     def train(self, im, start=True, xlf_from_detection=None):
         # Extract the features to train.

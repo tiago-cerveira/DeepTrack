@@ -43,7 +43,7 @@ class InitParams:
 
         self.frame = 0
 
-        self.id = 0
+        self.id = ''
 
 
 # Structure with kernel parameters
@@ -81,14 +81,13 @@ def main():
 
     # results = np.zeros((len(img_seq), 4))
     # time.sleep(0.5)
-    # pub = Publisher(str(5552 + int(params.id)/10))
     pub = Publisher('5552')
     sub1 = Consumer('5551', 'next_img')
     sub2 = Consumer('5551', 'kill')
     sub3 = Consumer('5551', 'update')
 
     # this need to go!
-    time.sleep(0.5)
+    time.sleep(0.4)
     pub.send('alive', params.id)
 
     starting = True
@@ -101,8 +100,11 @@ def main():
         # print(video_path + '/img/' + img_seq[img_index])
         img = cv2.imread(video_path + '/img/' + img_seq[img_index], 1)
         msg = sub2.recv_msg_no_block()
-        if msg == params.id or msg == 'all':
-            break
+        if msg is not False:
+            split_msg = msg.split()
+            if split_msg[0] == params.id or split_msg[0] == 'all':
+                print("tracker " + params.id + " received kill command, now exiting")
+                break
 
         msg = sub3.recv_msg_no_block()
         if msg is not False:
@@ -133,7 +135,7 @@ def main():
                 starting = False
             tracker1.train(img, True)
             results = np.array(
-                (pos[0] + np.floor(target_sz[0] / 2), pos[1] + np.floor(target_sz[1] / 2), target_sz[0], target_sz[1]))
+                (pos[0] + np.floor(target_sz[0] / 2), pos[1] + np.floor(target_sz[1] / 2), target_sz[0], target_sz[1], 10))
         else:
             results, lost, xtf = tracker1.detect(img)  # Detect the target in the next frame
             if not lost:
@@ -156,13 +158,15 @@ def main():
 
         params.frame += 1
         # print("tracker side:", str((cvrect).astype(np.int)))
-        pub.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0])))
+        pub.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0], int(results[4]))))
 
     # np.savetxt('results.txt', results, delimiter=',', fmt='%d')
-    # pub.close()
-    # sub1.close()
-    # sub2.close()
-    # sub3.close()
+    pub.send('alive', 'False')
+    pub.close()
+    sub1.close()
+    sub2.close()
+    sub3.close()
+
 
 if __name__ == "__main__":
     main()

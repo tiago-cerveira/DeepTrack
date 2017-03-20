@@ -13,7 +13,8 @@ import attention_model
 
 class InitParams:
     def __init__(self):
-        self.video_path = '/home/tiago/maritime_data_seq/lanchaArgos_clip3'
+        self.sequence = 'lanchaArgos_clip3'
+        self.video_path = '/home/tiago/maritime_data_seq/' + self.sequence
         self.groundtruth_file = 'groundtruth_rect_detection.txt'
 
         self.command = 'python tracker_handler.py ' + self.video_path + ' '
@@ -39,16 +40,24 @@ def main():
 
     detections = []
 
+    fp = open(params.sequence + '_output.txt', 'w')
+
     # iterate over every frame of the sequence selected
     for img_index in xrange(len(img_seq)):
-        # if img_index > 30:
-        #     time.sleep(2)
+        # time.sleep(0.1)
+
         img = cv2.imread(params.video_path + '/img/' + img_seq[img_index], 1)
+
+        if img_index == 0:
+            am = attention_model.AttentionModel(img)
 
         # full detection mode
         if params.num_trackers == 0:
-            if groundtruth[params.num_detections][0].astype(np.int) == img_index:
-                if groundtruth[params.num_detections][6] > 0.90:
+            while groundtruth[params.num_detections][0].astype(np.int) == img_index:
+                # print('img_index ({}) grd frame ({})'.format(img_index,
+                #                                              groundtruth[params.num_detections]))
+
+                if groundtruth[params.num_detections][6] > 0.95:
                     print("detection on frame", img_index)
 
                     # initialize tracker on previous detection
@@ -72,7 +81,6 @@ def main():
                         pub.send('next_img', str(img_index))
 
                 params.num_detections += 1
-                continue
 
         # using attention model
         else:
@@ -81,17 +89,21 @@ def main():
             pub.send('next_img', str(img_index))
 
             # in this case the ground truth file contains a detection for the current frame
-            if groundtruth[params.num_detections][0].astype(np.int) == img_index:
+            # TODO: cannot be a while
+            while groundtruth[params.num_detections][0].astype(np.int) == img_index:
                 params.num_detections += 1
 
                 # perform detection on patch
-                roi = attention_model.get_roi(detections, params.window_sz, img.shape)
+                roi = am.get_roi(detections, params.window_sz, img)
                 # print(roi)
-                rst, id, bb = attention_model.detect(roi, groundtruth[params.num_detections], detections)
+                rst, id, bb = am.detect(roi, groundtruth[params.num_detections], detections)
 
                 if rst == 'UPDATE':
+                    print("UPDATE")
                     # print("tracker counter:", params.tracker_counter)
                     pub.send('update', id)
+                    sub2.recv_msg()
+                    # time.sleep(0.2)
                     thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
                     thread.start()
 
@@ -102,24 +114,31 @@ def main():
                         pub.send('next_img', str(img_index))
 
                 elif rst == 'INSERT':
-                    pass
+                    print("INSERT")
+                    thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
+                    thread.start()
+
+                    if sub2.recv_msg() == str(params.tracker_counter):
+                        # print("sending index:", img_index)
+                        params.num_detections += 1
+                        params.tracker_counter += 1
+                        pub.send('next_img', str(img_index))
                 elif rst == 'DELETE':
                     pass
                 else:
                     pass
 
             # no detection for the whole frame
-            else:
-                print("No detection for frame:", img_index)
+            # else:
+            #     print("No detection for frame:", img_index)
 
         detections = []
         for i in xrange(params.num_trackers):
             aux = sub1.recv_msg()
-            print(aux)
+            print("recv det", aux)
             aux = aux.split(' (', 1)
             entry = [int(aux[0])]
             aux = aux[1][: -1]
-            # aux = aux[: -1]
             entry.extend([int(s) for s in aux.split(', ')])
             detections.append(entry)
             # print("received detection:", detections)
@@ -140,13 +159,23 @@ def main():
             cv2.resizeWindow("Image", int(img.shape[1]/2), int(img.shape[0]/2))
             cv2.imshow("Image", img)
             cv2.waitKey(1)
+
+        # in case a detection goes outside image
+        # TODO: make it work for multiple detections
         if len(detections) > 0:
-            if detections[0][1] + detections[0][3]/2 < 0 or detections[0][2] + detections[0][4]/2 < 0:
-                print(detections[0][0])
+            if detections[0][1] + detections[0][3]/2 < 0 or detections[0][2] + detections[0][4]/2 < 0 or detections[0][5] < 6:
+                print("LOST")
+                # print(detections[0][0])
+                pub.send('next_img', '0')
                 pub.send('kill', str(detections[0][0]))
                 params.num_trackers -= 1
+                params.tracker_counter += 1
+                sub2.recv_msg()
+
+            fp.write(str(img_index) + ' ' + str(detections[0][1:-1]) + '\n')
 
     pub.send('kill', 'all')
+    fp.close()
 
 
 if __name__ == "__main__":
