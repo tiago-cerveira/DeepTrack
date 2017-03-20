@@ -25,7 +25,7 @@ class InitParams:
 
         self.display = True
 
-        self.window_sz = np.array([300, 300])
+
 
 
 def main():
@@ -94,7 +94,7 @@ def main():
                 params.num_detections += 1
 
                 # perform detection on patch
-                roi = am.get_roi(detections, params.window_sz, img)
+                roi = am.get_roi(detections, img)
                 # print(roi)
                 rst, id, bb = am.detect(roi, groundtruth[params.num_detections], detections)
 
@@ -102,6 +102,7 @@ def main():
                     print("UPDATE")
                     # print("tracker counter:", params.tracker_counter)
                     pub.send('update', id)
+                    pub.send('next_img', '0')
                     sub2.recv_msg()
                     # time.sleep(0.2)
                     thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))

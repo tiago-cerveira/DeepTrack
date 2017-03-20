@@ -1,6 +1,37 @@
+from __future__ import print_function
 import cv2
 import numpy as np
 import random
+import time
+
+
+class ROI:
+    def __init__(self, center, top=False, bottom=False, left=False, right=False):
+        self.center = center
+        self.top = top
+        self.bottom = bottom
+        self.left = left
+        self.right = right
+
+        # max uncertainty (1 - boat, 0 - no boat)
+        self.uncertainty = 0.5
+
+
+    def update_uncertainty(self, optical_flow, detected=False, undetected=False):
+        if detected:
+            self.uncertainty = 1
+        elif undetected:
+            self.uncertainty = 0
+        else:
+            slope = 1
+            if self.top or self.bottom or self.left or self.right:
+                self.uncertainty -= self.func(slope*2)
+            else:
+                self.uncertainty -= self.func(slope)
+
+    def func(self, slope):
+        return 2 * self.uncertainty * slope - 0.5 * slope
+
 
 
 class AttentionModel:
@@ -22,6 +53,42 @@ class AttentionModel:
         self.old_gray = cv2.cvtColor(init_img, cv2.COLOR_BGR2GRAY)
         self.p0 = cv2.goodFeaturesToTrack(self.old_gray, mask=None, **self.feature_params)
 
+        self.window_sz = np.array([300, 300])
+
+        ncols = int(init_img.shape[1]/self.window_sz[1])
+        nrows = int(init_img.shape[0]/self.window_sz[0])
+
+        self.rois = []
+        for i in xrange(nrows):
+            for j in xrange(ncols):
+                print(i, j)
+                x = int(i*self.window_sz[0] + self.window_sz[0]/2)
+                y = int(j*self.window_sz[1] + self.window_sz[1]/2)
+                if i == 0 and j == 0:
+                    # print('top left', end=' ')
+                    self.rois.append(ROI((x, y), top=True, left=True))
+                elif i == nrows-1 and j == ncols-1:
+                    # print('bottom right', end=' ')
+                    self.rois.append(ROI((x, y), bottom=True, right=True))
+                elif i == 0 and j == ncols-1:
+                    # print('top right', end=' ')
+                    self.rois.append(ROI((x, y), top=True, right=True))
+                elif i == nrows-1 and j == 0:
+                    # print('bottom left', end=' ')
+                    self.rois.append(ROI((x, y), bottom=True, left=True))
+                elif i == 0 and j != 0:
+                    # print('top', end=' ')
+                    self.rois.append(ROI((x, y), top=True))
+                elif i != 0 and j == 0:
+                    # print('left', end=' ')
+                    self.rois.append(ROI((x, y), left=True))
+                elif i == nrows-1 and j != ncols-1:
+                    # print('bottom', end=' ')
+                    self.rois.append(ROI((x, y), bottom=True))
+                elif i != nrows-1 and j == ncols-1:
+                    # print('right', end=' ')
+                    self.rois.append(ROI((x, y), right=True))
+
     def get_optical_flow(self, frame):
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # calculate optical flow
@@ -39,17 +106,20 @@ class AttentionModel:
             # img = cv2.add(frame,mask)
             # cv2.imshow('frame',img)
             # cv2.waitKey(100)
-            print(a - c, b - d)
+            # print(a - c, b - d)
             self.old_gray = frame_gray.copy()
             self.p0 = good_new.reshape(-1, 1, 2)
+            return [a-c, b-d]
         except:
             self.p0 = cv2.goodFeaturesToTrack(self.old_gray, mask=None, **self.feature_params)
-            print("no optical flow")
+            # print("no optical flow")
+            return [0, 0]
 
-    def get_roi(self, hits, window_sz, img):
+    def get_roi(self, hits, img):
         # print("hits", hits)
         # mean, cov = [], []
-        self.get_optical_flow(img)
+        opt_flw = self.get_optical_flow(img)
+        print(opt_flw)
         decision = random.random()
 
         if decision < self.decision_threshold:
@@ -60,11 +130,11 @@ class AttentionModel:
             roi_center = np.random.multivariate_normal(mean, cov, 1).astype(np.int).transpose()
 
         else:
-            roi_center = [random.randint(0 + window_sz[1]/2, img.shape[1] - window_sz[1]/2), random.randint(0 + window_sz[0]/2, img.shape[0] - window_sz[0]/2)]
+            roi_center = [random.randint(0 + self.window_sz[1]/2, img.shape[1] - self.window_sz[1]/2), random.randint(0 + self.window_sz[0]/2, img.shape[0] - self.window_sz[0]/2)]
         # print roi_center
 
-        square = [roi_center[0] - window_sz[0]/2, roi_center[1] - window_sz[1]/2, window_sz[0], window_sz[1]]
-        return square
+        return [roi_center[0] - self.window_sz[0]/2, roi_center[1] - self.window_sz[1]/2, self.window_sz[0], self.window_sz[1]]
+
 
     def detect(self, roi, truth_line, detections):
         rst = None
@@ -90,7 +160,7 @@ class AttentionModel:
                     a = np.array((detection[1] + detection[3]/2, detection[2] + detection[4]/2))
                     b = np.array((truth[1] + truth[3]/2, truth[2] + truth[4]/2))
                     dist = np.linalg.norm(a - b)
-                    print round(dist, 1), round(float(detection[3]) / truth[3], 2), round(float(detection[4]) / truth[4], 2)
+                    print(round(dist, 1), round(float(detection[3]) / truth[3], 2), round(float(detection[4]) / truth[4], 2))
 
                     if dist > self.dist_threshold or \
                         float(detection[3]) / truth[3] < self.min_scale_threshold or \
