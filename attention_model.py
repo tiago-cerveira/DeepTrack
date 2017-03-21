@@ -8,6 +8,7 @@ import time
 class ROI:
     def __init__(self, center, top=False, bottom=False, left=False, right=False):
         self.center = center
+        # print(self.center)
         self.top = top
         self.bottom = bottom
         self.left = left
@@ -16,27 +17,48 @@ class ROI:
         # max uncertainty (1 - boat, 0 - no boat)
         self.uncertainty = 0.5
 
+        self.slope = 0.01
 
-    def update_uncertainty(self, optical_flow, detected=False, undetected=False):
-        if detected:
+        self.detected, self.undetected = False, False
+
+    def update_uncertainty(self, optical_flow):
+        if self.detected:
             self.uncertainty = 1
-        elif undetected:
+            self.detected = False
+        elif self.undetected:
             self.uncertainty = 0
+            self.undetected = False
         else:
-            slope = 1
             if self.top or self.bottom or self.left or self.right:
-                self.uncertainty -= self.func(slope*2)
+                if self.top and optical_flow[1] > 0:
+                    self.uncertainty -= self.func(self.slope * 2 * optical_flow[1])
+                else:
+                    self.uncertainty -= self.func(self.slope)
+                if self.bottom and optical_flow[1] < 0:
+                    self.uncertainty -= self.func(self.slope * 2 * optical_flow[1])
+                else:
+                    self.uncertainty -= self.func(self.slope)
+                if self.left and optical_flow[0] < 0:
+                    self.uncertainty -= self.func(self.slope * 2 * optical_flow[0])
+                else:
+                    self.uncertainty -= self.func(self.slope)
+                if self.right and optical_flow[0] > 0:
+                    self.uncertainty -= self.func(self.slope * 2 * optical_flow[0])
+                else:
+                    self.uncertainty -= self.func(self.slope)
             else:
-                self.uncertainty -= self.func(slope)
+                self.uncertainty -= self.func(self.slope/2)
 
     def func(self, slope):
-        return 2 * self.uncertainty * slope - 0.5 * slope
+        return 2 * slope * (self.uncertainty - 0.5)
 
+    def arg(self):
+        return -4*(self.uncertainty-0.5)**2 + 1
 
 
 class AttentionModel:
     def __init__(self, init_img):
-        self.decision_threshold = 0.5
+        self.decision_threshold = 0.0
         self.dist_threshold = 20
         self.min_scale_threshold = 0.7
         self.max_scale_threshold = 1.3
@@ -55,13 +77,17 @@ class AttentionModel:
 
         self.window_sz = np.array([300, 300])
 
-        ncols = int(init_img.shape[1]/self.window_sz[1])
-        nrows = int(init_img.shape[0]/self.window_sz[0])
+        ncols = np.ceil(float(init_img.shape[1])/self.window_sz[1]).astype(int)
+        nrows = np.ceil(float(init_img.shape[0])/self.window_sz[0]).astype(int)
+
+        # print('cols', ncols, 'rows', nrows)
+
+        self.roi_selected = None
 
         self.rois = []
         for i in xrange(nrows):
             for j in xrange(ncols):
-                print(i, j)
+                # print(i, j)
                 x = int(i*self.window_sz[0] + self.window_sz[0]/2)
                 y = int(j*self.window_sz[1] + self.window_sz[1]/2)
                 if i == 0 and j == 0:
@@ -88,6 +114,10 @@ class AttentionModel:
                 elif i != nrows-1 and j == ncols-1:
                     # print('right', end=' ')
                     self.rois.append(ROI((x, y), right=True))
+                else:
+                    self.rois.append(ROI((x, y)))
+                # time.sleep(2)
+        # print('rois size', len(self.rois))
 
     def get_optical_flow(self, frame):
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -118,23 +148,33 @@ class AttentionModel:
     def get_roi(self, hits, img):
         # print("hits", hits)
         # mean, cov = [], []
-        opt_flw = self.get_optical_flow(img)
-        print(opt_flw)
+        self.opt_flw = self.get_optical_flow(img)
+        # print(self.opt_flw)
+        # print('on get roi: selected ->', self.roi_selected)
+
+
         decision = random.random()
 
+        # adjust know boat
+        # TODO: make it work for multiple boats
         if decision < self.decision_threshold:
             mean = np.array([hits[0][1] + hits[0][3] / 2, hits[0][2] + hits[0][4] / 2])
             cov = np.array([[hits[0][3] * 10, 0], [0, hits[0][4] * 10]])
 
-            # print "mean", mean
             roi_center = np.random.multivariate_normal(mean, cov, 1).astype(np.int).transpose()
 
+        # look for new boats
         else:
-            roi_center = [random.randint(0 + self.window_sz[1]/2, img.shape[1] - self.window_sz[1]/2), random.randint(0 + self.window_sz[0]/2, img.shape[0] - self.window_sz[0]/2)]
-        # print roi_center
+            baseline_uncertainty = self.rois[0].arg()
+            for i, roi in enumerate(self.rois):
+                # print(roi.uncertainty)
+                if roi.arg() >= baseline_uncertainty:
+                    roi_center = np.flip(roi.center, 0)
+                    self.roi_selected = i
+            # print(self.roi_selected)
+            # roi_center = [random.randint(0 + self.window_sz[1]/2, img.shape[1] - self.window_sz[1]/2), random.randint(0 + self.window_sz[0]/2, img.shape[0] - self.window_sz[0]/2)]
 
         return [roi_center[0] - self.window_sz[0]/2, roi_center[1] - self.window_sz[1]/2, self.window_sz[0], self.window_sz[1]]
-
 
     def detect(self, roi, truth_line, detections):
         rst = None
@@ -150,12 +190,14 @@ class AttentionModel:
             truth[2] + truth[4] < roi[1] + roi[3] and \
                 truth_line[6] > 0.90:
 
-            # there is also a tracker on the attention box
             for detection in detections:
+                # there is also a tracker on the attention box
                 if detection[1] > roi[0] and \
                     detection[2] > roi[1] and \
                     detection[1] + detection[3] < roi[0] + roi[2] and \
                         detection[2] + detection[4] < roi[1] + roi[3]:
+                    if self.roi_selected is not None:
+                        self.rois[self.roi_selected].detected = True
 
                     a = np.array((detection[1] + detection[3]/2, detection[2] + detection[4]/2))
                     b = np.array((truth[1] + truth[3]/2, truth[2] + truth[4]/2))
@@ -171,7 +213,9 @@ class AttentionModel:
                         rst = 'UPDATE'
                         id = str(detection[0])
                         bb = str(truth[1]) + ' ' + str(truth[2]) + ' ' + str(truth[3]) + ' ' + str(truth[4])
-                    return rst, id, bb
+                    # return rst, id, bb
+
+
 
             # there is a detection but not a tracker
             # rst = 'INSERT'
@@ -184,5 +228,17 @@ class AttentionModel:
                 detections[0][2] + detections[0][4] < roi[1] + roi[3]:
 
             rst = 'DELETE'
+
+        # nothing on detection box
+        else:
+            if self.roi_selected is not None:
+                self.rois[self.roi_selected].undetected = True
+
+        for roi in self.rois:
+            # print(roi.detected, roi.undetected)
+            roi.update_uncertainty(self.opt_flw)
+            print('roi uncertainty', roi.uncertainty)
+        time.sleep(3)
+        self.roi_selected = None
 
         return rst, id, bb

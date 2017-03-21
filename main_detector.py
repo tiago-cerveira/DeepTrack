@@ -88,50 +88,55 @@ def main():
             print("sending frame to trackers:", img_index)
             pub.send('next_img', str(img_index))
 
-            # in this case the ground truth file contains a detection for the current frame
-            # TODO: cannot be a while
-            while groundtruth[params.num_detections][0].astype(np.int) == img_index:
-                params.num_detections += 1
+            try:
+                # in this case the ground truth file contains a detection for the current frame
+                # TODO: cannot be a while
+                while groundtruth[params.num_detections][0].astype(np.int) == img_index:
+                    # params.num_detections += 1
 
-                # perform detection on patch
-                roi = am.get_roi(detections, img)
-                # print(roi)
-                rst, id, bb = am.detect(roi, groundtruth[params.num_detections], detections)
+                    # perform detection on patch
+                    roi = am.get_roi(detections, img)
+                    # print(roi)
+                    rst, id, bb = am.detect(roi, groundtruth[params.num_detections], detections)
 
-                if rst == 'UPDATE':
-                    print("UPDATE")
-                    # print("tracker counter:", params.tracker_counter)
-                    pub.send('update', id)
-                    pub.send('next_img', '0')
-                    sub2.recv_msg()
-                    # time.sleep(0.2)
-                    thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
-                    thread.start()
+                    if rst == 'UPDATE':
+                        print("UPDATE")
+                        # print("tracker counter:", params.tracker_counter)
+                        pub.send('update', id)
+                        pub.send('next_img', '0')
+                        sub2.recv_msg()
+                        # time.sleep(0.2)
+                        thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
+                        thread.start()
 
-                    if sub2.recv_msg() == str(params.tracker_counter):
-                        # print("sending index:", img_index)
-                        params.num_detections += 1
-                        params.tracker_counter += 1
-                        pub.send('next_img', str(img_index))
+                        if sub2.recv_msg() == str(params.tracker_counter):
+                            # print("sending index:", img_index)
+                            params.num_detections += 1
+                            params.tracker_counter += 1
+                            pub.send('next_img', str(img_index))
 
-                elif rst == 'INSERT':
-                    print("INSERT")
-                    thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
-                    thread.start()
+                    elif rst == 'INSERT':
+                        print("INSERT")
+                        thread = Thread(target=threaded_function, args=((params.command + bb + ' ' + str(params.tracker_counter)),))
+                        thread.start()
 
-                    if sub2.recv_msg() == str(params.tracker_counter):
-                        # print("sending index:", img_index)
-                        params.num_detections += 1
-                        params.tracker_counter += 1
-                        pub.send('next_img', str(img_index))
-                elif rst == 'DELETE':
-                    pass
-                else:
-                    pass
+                        if sub2.recv_msg() == str(params.tracker_counter):
+                            # print("sending index:", img_index)
+                            params.num_detections += 1
+                            params.tracker_counter += 1
+                            pub.send('next_img', str(img_index))
+                    elif rst == 'DELETE':
+                        pass
+                    else:
+                        pass
 
-            # no detection for the whole frame
-            # else:
-            #     print("No detection for frame:", img_index)
+                    params.num_detections += 1
+
+                # no detection for the whole frame
+                # else:
+                #     print("No detection for frame:", img_index)
+            except:
+                break
 
         detections = []
         for i in xrange(params.num_trackers):
