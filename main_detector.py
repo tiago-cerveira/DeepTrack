@@ -8,12 +8,12 @@ from threading import Thread
 from comm_publisher import Publisher
 from comm_consumer import Consumer
 from utils import *
-import attention_model
+import sparse_attention_model
 
 
 class InitParams:
     def __init__(self):
-        self.sequence = 'lanchaArgos_clip3'
+        self.sequence = '2015-04-22-16-05-15_jai_eo'
         self.video_path = '/home/tiago/maritime_data_seq/' + self.sequence
         self.groundtruth_file = 'groundtruth_rect_detection.txt'
 
@@ -24,8 +24,6 @@ class InitParams:
         self.tracker_counter = 0
 
         self.display = True
-
-
 
 
 def main():
@@ -169,7 +167,7 @@ def main():
         # in case a detection goes outside image
         # TODO: make it work for multiple detections
         if len(detections) > 0:
-            if detections[0][1] + detections[0][3]/2 < 0 or detections[0][2] + detections[0][4]/2 < 0 or detections[0][5] < 6:
+            if detections[0][1] + detections[0][3]/2 < 0 or detections[0][2] + detections[0][4]/2 < 0 or detections[0][5] < 5:
                 print("LOST")
                 # print(detections[0][0])
                 pub.send('next_img', '0')

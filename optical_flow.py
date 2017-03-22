@@ -34,7 +34,11 @@ while(j < 500):
     frame = cv2.imread(video_path + '/img/' + img_seq[j+80], 1)
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # calculate optical flow
-    p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+    # p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+    flow = cv2.calcOpticalFlowFarneback(old_gray, frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    max = np.max(flow)
+    cv2.imshow('1', flow[:, :, 0]/max)
+    cv2.waitKey(-1)
     # Select good points
     try:
         good_new = p1[st==1]
@@ -53,5 +57,5 @@ while(j < 500):
         p0 = good_new.reshape(-1,1,2)
     except:
         p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, **feature_params)
-    time.sleep(2)
+    # time.sleep(2)
 cv2.destroyAllWindows()
