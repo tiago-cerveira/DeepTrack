@@ -6,7 +6,7 @@ import numpy as np
 class ROI:
     # max uncertainty (1 - boat, 0 - no boat)
     uncertainty = 0.5
-    slope = 0.01
+    slope = 0.005
     detected, undetected = False, False
 
     def __init__(self, center, window_sz, top=False, bottom=False, left=False, right=False):
@@ -18,37 +18,16 @@ class ROI:
         self.left = left
         self.right = right
 
-    def update_uncertainty(self):
+    def update_uncertainty(self, new_uncertainty):
         if self.detected:
             self.uncertainty = 1
             self.detected = False
         elif self.undetected:
             self.uncertainty = 0
             self.undetected = False
-        # else:
-        #     if self.top or self.bottom or self.left or self.right:
-        #         if self.top and optical_flow[1] > 0:
-        #             self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[1]))
-        #         else:
-        #             self.uncertainty -= self.func(self.slope)
-        #
-        #         if self.bottom and optical_flow[1] < 0:
-        #             self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[1]))
-        #         else:
-        #             self.uncertainty -= self.func(self.slope)
-        #
-        #         if self.left and optical_flow[0] < 0:
-        #             self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[0]))
-        #         else:
-        #             self.uncertainty -= self.func(self.slope)
-        #
-        #         if self.right and optical_flow[0] > 0:
-        #             self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[0]))
-        #         else:
-        #             self.uncertainty -= self.func(self.slope)
-        #
-        #     else:
-        #         self.uncertainty -= self.func(self.slope/2)
+        else:
+            self.uncertainty = new_uncertainty
+            self.uncertainty -= self.func(self.slope)
 
     def func(self, slope):
         return 2 * slope * (self.uncertainty - 0.5)
@@ -117,6 +96,7 @@ def prop_uncertainty(rois, flow, window_sz, uncert_prop):
     for roi in rois:
         # mov_center = flow[roi.center[1], roi.center[0], :] # just for the centers
         mov_center = flow[roi.center[1]-window_sz[1]/2:roi.center[1]+window_sz[1]/2, roi.center[0]-window_sz[0]/2:roi.center[0]+window_sz[0]/2, :].mean(axis=(0,1), dtype=np.float64)
+        mov_center = np.flip(mov_center, 0)
         roi_mov = ROI(roi.center + mov_center, window_sz)
         roi_mov.uncertainty = roi.uncertainty
         for i, static_roi in enumerate(rois):
@@ -133,7 +113,7 @@ def prop_uncertainty(rois, flow, window_sz, uncert_prop):
 def main():
     window_sz = (300, 300)
     flow = np.zeros((1080, 1920, 2))
-    flow[150, 150, :] = (150, 300)
+    flow[150, 150, :] = (600, 600)
 
     ncols = np.floor(float(flow.shape[1]) / window_sz[0]).astype(int)
     nrows = np.floor(float(flow.shape[0]) / window_sz[1]).astype(int)
@@ -144,6 +124,9 @@ def main():
     uncert_prop = np.zeros((len(rois), 2))
 
     uncert_prop = prop_uncertainty(rois, flow, window_sz, uncert_prop)
+
+    for i, roi in enumerate(rois):
+        roi.update_uncertainty(uncert_prop[i, 0])
 
 
 if __name__ == "__main__":

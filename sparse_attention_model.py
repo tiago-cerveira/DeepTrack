@@ -31,22 +31,26 @@ class ROI:
         else:
             if self.top or self.bottom or self.left or self.right:
                 if self.top and optical_flow[1] > 0:
-                    self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[1]))
+                    print('TOP')
+                    self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[1]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
                 if self.bottom and optical_flow[1] < 0:
-                    self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[1]))
+                    print('BOTTOM')
+                    self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[1]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
-                if self.left and optical_flow[0] < 0:
-                    self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[0]))
+                if self.left and optical_flow[0] > 0:
+                    print('LEFT')
+                    self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[0]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
-                if self.right and optical_flow[0] > 0:
-                    self.uncertainty -= self.func(self.slope * 2 * abs(optical_flow[0]))
+                if self.right and optical_flow[0] < 0:
+                    print('RIGHT')
+                    self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[0]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
@@ -54,6 +58,7 @@ class ROI:
                 self.uncertainty -= self.func(self.slope/2)
 
     def func(self, slope):
+        # TODO: Make sure this does not overstep maximum uncertainty
         return 2 * slope * (self.uncertainty - 0.5)
 
     def arg(self):
@@ -62,7 +67,7 @@ class ROI:
 
 class AttentionModel:
     def __init__(self, init_img):
-        self.decision_threshold = 0.0
+        self.decision_threshold = 0.1
         self.dist_threshold = 20
         self.min_scale_threshold = 0.7
         self.max_scale_threshold = 1.3

@@ -13,7 +13,7 @@ import sparse_attention_model
 
 class InitParams:
     def __init__(self):
-        self.sequence = '2015-04-22-16-05-15_jai_eo'
+        self.sequence = 'lanchaArgos_clip3'
         self.video_path = '/home/tiago/maritime_data_seq/' + self.sequence
         self.groundtruth_file = 'groundtruth_rect_detection.txt'
 
@@ -47,7 +47,7 @@ def main():
         img = cv2.imread(params.video_path + '/img/' + img_seq[img_index], 1)
 
         if img_index == 0:
-            am = attention_model.AttentionModel(img)
+            am = sparse_attention_model.AttentionModel(img)
 
         # full detection mode
         if params.num_trackers == 0:
