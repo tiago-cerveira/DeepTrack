@@ -1,5 +1,4 @@
 from __future__ import print_function
-import time
 import numpy as np
 
 
@@ -13,6 +12,7 @@ class ROI:
         self.center = center
         self.window_sz = window_sz
         # print(self.center)
+        # TODO: Don't need to know the location of the cell
         self.top = top
         self.bottom = bottom
         self.left = left
@@ -75,8 +75,12 @@ def create_rois(ncols, nrows, window_sz):
 
 
 def area(rect_a, rect_b):
-    dx = min(rect_a.center[0]+rect_a.window_sz[0]/2, rect_b.center[0]+rect_b.window_sz[0]/2) - max(rect_a.center[0]-rect_a.window_sz[0]/2, rect_b.center[0]-rect_b.window_sz[0]/2)
-    dy = min(rect_a.center[1]+rect_a.window_sz[1]/2, rect_b.center[1]+rect_b.window_sz[1]/2) - max(rect_a.center[1]-rect_a.window_sz[1]/2, rect_b.center[1]-rect_b.window_sz[1]/2)
+    dx = min(rect_a.center[0]+rect_a.window_sz[0]/2, rect_b.center[0]+rect_b.window_sz[0]/2)\
+        - max(rect_a.center[0]-rect_a.window_sz[0]/2, rect_b.center[0]-rect_b.window_sz[0]/2)
+
+    dy = min(rect_a.center[1]+rect_a.window_sz[1]/2, rect_b.center[1]+rect_b.window_sz[1]/2)\
+        - max(rect_a.center[1]-rect_a.window_sz[1]/2, rect_b.center[1]-rect_b.window_sz[1]/2)
+
     if dx > 0 and dy > 0:
         return dx*dy
 
@@ -86,7 +90,7 @@ def normalize_prop(uncert_prop):
         # too much info, need to normalize
         if pos[1] > 1:
             pos[0] /= pos[1]
-        # too litle propagation, uncertainty arises
+        # too little propagation, uncertainty arises
         elif pos[1] < 1:
             pos[0] = pos[0] * pos[1] + 0.5 * (1 - pos[1])
     return uncert_prop
@@ -94,26 +98,34 @@ def normalize_prop(uncert_prop):
 
 def prop_uncertainty(rois, flow, window_sz, uncert_prop):
     for roi in rois:
+        # how much the optical flow says the window moved relative to the previous frame
         # mov_center = flow[roi.center[1], roi.center[0], :] # just for the centers
-        mov_center = flow[roi.center[1]-window_sz[1]/2:roi.center[1]+window_sz[1]/2, roi.center[0]-window_sz[0]/2:roi.center[0]+window_sz[0]/2, :].mean(axis=(0,1), dtype=np.float64)
+        mov_center = flow[roi.center[1]-window_sz[1]/2:roi.center[1]+window_sz[1]/2,
+                          roi.center[0]-window_sz[0]/2:roi.center[0]+window_sz[0]/2, :]
+        mov_center = mov_center.mean(axis=(0, 1), dtype=np.float64)
         mov_center = np.flip(mov_center, 0)
+
         roi_mov = ROI(roi.center + mov_center, window_sz)
         roi_mov.uncertainty = roi.uncertainty
         for i, static_roi in enumerate(rois):
-            try:
-                area_rel = area(static_roi, roi_mov)/np.prod(roi.window_sz)
+            area_abs = area(static_roi, roi_mov)
+            if area_abs is not None:
+                area_rel = area_abs/np.prod(roi.window_sz)
+                # TODO: Careful if should sum or subtract
                 uncert_prop[i, :] += (area_rel * roi_mov.uncertainty, area_rel)
-            except:
-                pass
 
     uncert_prop = normalize_prop(uncert_prop)
+
+    for i, roi in enumerate(rois):
+        roi.update_uncertainty(uncert_prop[i, 0])
+
     return uncert_prop
 
 
 def main():
     window_sz = (300, 300)
     flow = np.zeros((1080, 1920, 2))
-    flow[150, 150, :] = (600, 600)
+    flow[150, 150, :] = (300, 0)
 
     ncols = np.floor(float(flow.shape[1]) / window_sz[0]).astype(int)
     nrows = np.floor(float(flow.shape[0]) / window_sz[1]).astype(int)
@@ -125,8 +137,8 @@ def main():
 
     uncert_prop = prop_uncertainty(rois, flow, window_sz, uncert_prop)
 
-    for i, roi in enumerate(rois):
-        roi.update_uncertainty(uncert_prop[i, 0])
+    for roi in rois:
+        print(roi.uncertainty)
 
 
 if __name__ == "__main__":

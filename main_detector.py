@@ -9,6 +9,7 @@ from comm_publisher import Publisher
 from comm_consumer import Consumer
 from utils import *
 import sparse_attention_model
+import dense_attention_model
 
 
 class InitParams:
@@ -47,7 +48,8 @@ def main():
         img = cv2.imread(params.video_path + '/img/' + img_seq[img_index], 1)
 
         if img_index == 0:
-            am = sparse_attention_model.AttentionModel(img)
+            # am = sparse_attention_model.AttentionModel(img)
+            am = dense_attention_model.AttentionModel(img)
 
         # full detection mode
         if params.num_trackers == 0:
@@ -124,6 +126,8 @@ def main():
                             params.tracker_counter += 1
                             pub.send('next_img', str(img_index))
                     elif rst == 'DELETE':
+                        print("DELETE")
+                        time.sleep(1)
                         pass
                     else:
                         pass
