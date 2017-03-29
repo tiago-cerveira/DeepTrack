@@ -9,7 +9,7 @@ import os
 # import caffe
 import tensorflow as tf
 from tensorflow.contrib.slim.nets import inception
-from PIL import Image
+# from PIL import Image
 from util import *
 
 

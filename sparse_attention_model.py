@@ -31,25 +31,25 @@ class ROI:
         else:
             if self.top or self.bottom or self.left or self.right:
                 if self.top and optical_flow[1] > 0:
-                    print('TOP')
+                    # print('TOP')
                     self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[1]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
                 if self.bottom and optical_flow[1] < 0:
-                    print('BOTTOM')
+                    # print('BOTTOM')
                     self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[1]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
                 if self.left and optical_flow[0] > 0:
-                    print('LEFT')
+                    # print('LEFT')
                     self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[0]))
                 else:
                     self.uncertainty -= self.func(self.slope)
 
                 if self.right and optical_flow[0] < 0:
-                    print('RIGHT')
+                    # print('RIGHT')
                     self.uncertainty -= self.func(self.slope * 2 * abs(1 + optical_flow[0]))
                 else:
                     self.uncertainty -= self.func(self.slope)
@@ -161,10 +161,9 @@ class AttentionModel:
         # print(self.opt_flw)
         # print('on get roi: selected ->', self.roi_selected)
 
-
         decision = random.random()
 
-        # adjust know boat
+        # adjust known boat
         # TODO: make it work for multiple boats
         if decision < self.decision_threshold:
             mean = np.array([hits[0][1] + hits[0][3] / 2, hits[0][2] + hits[0][4] / 2])

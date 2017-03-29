@@ -5,8 +5,8 @@ import time
 import numpy as np
 # import h5py
 # from matplotlib import pyplot as plt
-from Tkinter import Tk
-from tkFileDialog import askdirectory
+# from Tkinter import Tk
+# from tkFileDialog import askdirectory
 import os
 import tensorflow as tf
 
