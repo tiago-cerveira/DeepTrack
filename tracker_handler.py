@@ -1,7 +1,7 @@
 from __future__ import print_function
 import cv2
 import sys
-import pika
+# import pika
 from time import sleep
 import numpy as np
 from comm_consumer import Consumer
