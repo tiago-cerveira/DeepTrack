@@ -175,9 +175,9 @@ class AttentionModel:
 
     def get_roi(self, hits, img):
 
-        start = time.time()
+        # start = time.time()
         self.compute_optical_flow(img)
-        print("took", round(time.time() - start, 2), "seconds to compute optical flow")
+        # print("took", round(time.time() - start, 2), "seconds to compute optical flow")
         decision = random.random()
 
         # adjust known boat
@@ -201,7 +201,7 @@ class AttentionModel:
                     # roi_center = np.flip(roi.center, 0)
                     # print('updated for roi', i)
                     self.roi_selected = i
-                # time.sleep(2)
+                # time.sleep(1)
             # print(self.roi_selected)
 
         return [roi_center[0] - self.window_sz[0]/2, roi_center[1] - self.window_sz[1]/2, self.window_sz[0], self.window_sz[1]]
@@ -256,6 +256,9 @@ class AttentionModel:
                         detections[0][2] > roi[1] and \
                                 detections[0][1] + detections[0][3] < roi[0] + roi[2] and \
                                 detections[0][2] + detections[0][4] < roi[1] + roi[3]:
+            if self.roi_selected is not None:
+                self.rois[self.roi_selected].undetected = True
+            print('tracker but not boat on roi', self.roi_selected)
 
             rst = 'DELETE'
 

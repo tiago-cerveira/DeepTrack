@@ -127,7 +127,7 @@ def main():
                             pub.send('next_img', str(img_index))
                     elif rst == 'DELETE':
                         print("DELETE")
-                        time.sleep(1)
+                        # time.sleep(1)
                         pass
                     else:
                         pass
