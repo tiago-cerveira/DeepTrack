@@ -3,22 +3,24 @@ import cv2
 from utils import *
 import time
 
-video_path = '/home/tiago/maritime_data_seq/lanchaArgos_clip3'
+# video_path = '/home/tiago/maritime_data_seq/lanchaArgos_clip3'
 
-img_seq = load_video_sequence(video_path=video_path)
+# img_seq = load_video_sequence(video_path=video_path)
 
 # cap = cv2.VideoCapture('slow.flv')
 # params for ShiTomasi corner detection
-feature_params = dict( maxCorners = 100,
-                       qualityLevel = 0.3,
-                       minDistance = 7,
-                       blockSize = 7 )
-# Parameters for lucas kanade optical flow
-lk_params = dict( winSize  = (15,15),
-                  maxLevel = 2,
-                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+# feature_params = dict( maxCorners = 100,
+#                        qualityLevel = 0.3,
+#                        minDistance = 7,
+#                        blockSize = 7 )
+# # Parameters for lucas kanade optical flow
+# lk_params = dict( winSize  = (15,15),
+#                   maxLevel = 2,
+#                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-old_frame = cv2.imread(video_path + '/img/' + img_seq[0], 1)
+# old_frame = cv2.imread(video_path + '/img/' + img_seq[0], 1)
+old_frame = cv2.imread('/home/tiago/Desktop/1.jpg', 1)
+# old_frame = cv2.resize(old_frame, (0,0), fx=0.25, fy=0.25)
 j = 0
 # Create some random colors
 color = np.random.randint(0,255,(100,3))
@@ -31,14 +33,20 @@ old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
 while(j < 500):
     print j
     j += 1
-    frame = cv2.imread(video_path + '/img/' + img_seq[j], 1)
+    # frame = cv2.imread(video_path + '/img/' + img_seq[j], 1)
+    frame = cv2.imread('/home/tiago/Desktop/2.jpg', 1)
+    # frame = cv2.resize(frame, (0,0), fx=0.25, fy=0.25)
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # calculate optical flow
     # p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+    start = time.time()
     flow = cv2.calcOpticalFlowFarneback(old_gray, frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    max = np.max(flow)
-    cv2.imshow('1', flow[:, :, 1]/max)
-    cv2.waitKey(10)
+    print 'took', round(time.time() - start, 2), 'secs to compute OF'
+    mean = np.mean(flow[:,:, 1 ])
+    print 'mean', mean
+    cv2.imshow('1', flow[:, :,1])
+    cv2.waitKey(-1)
+    break
     # Select good points
     # try:
     #     good_new = p1[st==1]

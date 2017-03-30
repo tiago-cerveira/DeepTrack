@@ -36,7 +36,7 @@ class ROI:
     def func(self, slope):
         return 2 * slope * (self.uncertainty - 0.5)
 
-    # has a maximum response when uncertainty is higher and minimum when it is lower
+    # has a maximum response (1) when uncertainty is higher and minimum (0) when it is lower
     def arg(self):
         return -4*(self.uncertainty-0.5)**2 + 1
 
@@ -51,21 +51,25 @@ class AttentionModel:
     flow = None
 
     def __init__(self, init_img):
+        n_rows = np.floor(float(init_img.shape[0]) / self.window_sz[0]).astype(int)
         n_cols = np.floor(float(init_img.shape[1])/self.window_sz[1]).astype(int)
-        n_rows = np.floor(float(init_img.shape[0])/self.window_sz[0]).astype(int)
 
-        self.create_rois(n_cols, n_rows)
+        # print('nrows', n_rows, 'ncols', n_cols)
+
+        self.create_rois(n_rows, n_cols)
 
         self.roi_selected = None
 
-        self.old_gray = cv2.cvtColor(init_img, cv2.COLOR_BGR2GRAY)
+        self.old_gray = cv2.resize(init_img, (0, 0), fx=1.0, fy=1.0)
+        self.old_gray = cv2.cvtColor(self.old_gray, cv2.COLOR_BGR2GRAY)
 
-    def create_rois(self, n_cols, n_rows):
+    def create_rois(self, n_rows, n_cols):
         for i in xrange(n_cols):
             for j in xrange(n_rows):
                 # print(i, j)
                 x = int(i * self.window_sz[0] + self.window_sz[0] / 2)
                 y = int(j * self.window_sz[1] + self.window_sz[1] / 2)
+                # print((x, y), end=' ')
                 if i == 0 and j == 0:
                     # print('top left', end=' ')
                     self.rois.append(ROI((x, y), self.window_sz, top=True, left=True))
@@ -91,15 +95,18 @@ class AttentionModel:
                     # print('bottom', end=' ')
                     self.rois.append(ROI((x, y), self.window_sz, bottom=True))
                 else:
+                    # print('middle', end=' ')
                     self.rois.append(ROI((x, y), self.window_sz))
-                    # time.sleep(2)
+                # print()
+                # time.sleep(2)
 
     def compute_optical_flow(self, frame):
-        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame_gray = cv2.resize(frame, (0, 0), fx=1.0, fy=1.0)
+        frame_gray = cv2.cvtColor(frame_gray, cv2.COLOR_BGR2GRAY)
 
         self.flow = cv2.calcOpticalFlowFarneback(self.old_gray, frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         max_val = np.max(self.flow)
-        print(max_val)
+        # print(max_val)
 
         self.old_gray = frame_gray.copy()
 
@@ -115,37 +122,56 @@ class AttentionModel:
             return dx * dy
 
     @staticmethod
-    def normalize_prop(prop):
-        # too much info, need to normalize
-        if prop[1] > 1:
-            prop[0] /= prop[1]
-        # too little propagation, uncertainty arises
-        elif prop[1] < 1:
-            prop[0] = prop[0] * prop[1] + 0.5 * (1 - prop[1])
-        return prop
+    def normalize_prop(uncert_prop):
+        for pos in uncert_prop:
+            # too much info, need to normalize
+            if pos[1] > 1:
+                pos[0] /= pos[1]
+            # too little propagation, uncertainty arises
+            elif pos[1] < 1:
+                pos[0] = pos[0] * pos[1] + 0.5 * (1 - pos[1])
+        return uncert_prop
 
     def prop_uncertainty(self):
+        # print(self.flow.shape)
+        uncert_prop = np.zeros((len(self.rois), 2))
         for roi in self.rois:
+            # print('roi center', roi.center)
             # how much the optical flow says the window moved relative to the previous frame
             # mov_center = flow[roi.center[1], roi.center[0], :] # just for the centers
-            mov_center = self.flow[roi.center[1] - self.window_sz[1] / 2:roi.center[1] + self.window_sz[1] / 2,
-                         roi.center[0] - self.window_sz[0] / 2:roi.center[0] + self.window_sz[0] / 2, :]
+            x_range = [roi.center[0] - self.window_sz[0] / 2, roi.center[0] + self.window_sz[0] / 2]
+            y_range = [roi.center[1] - self.window_sz[1] / 2, roi.center[1] + self.window_sz[1] / 2]
+            # print(x_range, y_range)
+            mov_center = self.flow[y_range[0]:y_range[1], x_range[0]:x_range[1], :]
             mov_center = mov_center.mean(axis=(0, 1), dtype=np.float64)
-            mov_center = np.flip(mov_center, 0)
+            # TODO: Careful with the order
+            # mov_center = np.flip(mov_center, 0)
 
             roi_mov = ROI(roi.center + mov_center, self.window_sz)
+            # print('mov_center', roi_mov.center)
+
+            # print('roimov_uncert', roi_mov.uncertainty, 'roi_uncert', roi.uncertainty)
             roi_mov.uncertainty = roi.uncertainty
+            # print('roimov_uncert', roi_mov.uncertainty, 'roi_uncert', roi.uncertainty)
+
             for i, static_roi in enumerate(self.rois):
                 area_abs = self.area(static_roi, roi_mov)
+                # print('area', area_abs, 'between', roi_mov.center, 'and', static_roi.center)
                 if area_abs is not None:
                     area_rel = area_abs / np.prod(roi.window_sz)
+                    # print('area_rel', area_rel)
                     # TODO: Careful if should sum or subtract
-                    static_roi.uncertainty += area_rel * roi_mov.uncertainty
-                    static_roi.voverage += area_rel
+                    uncert_prop[i, :] += (area_rel * roi_mov.uncertainty, area_rel)
+            # print(uncert_prop)
+            # print()
+            # time.sleep(5)
+
+        uncert_prop = self.normalize_prop(uncert_prop)
+        # time.sleep(120)
 
         for i, roi in enumerate(self.rois):
-            new_uncertainty = self.normalize_prop((roi.uncertainty, roi.coverage))
-            roi.update_uncertainty(roi.uncertainty)
+            roi.update_uncertainty(uncert_prop[i, 0])
+            # print(roi.uncertainty)
 
     def get_roi(self, hits, img):
 
@@ -168,12 +194,15 @@ class AttentionModel:
             self.roi_selected = 0
             roi_center = np.flip(self.rois[0].center, 0)
             for i, roi in enumerate(self.rois):
-                # print(roi.uncertainty)
-                if roi.arg() >= baseline_uncertainty:
-                    roi_center = np.flip(roi.center, 0)
+                # print(roi.arg())
+                if roi.arg() > baseline_uncertainty:
+                    baseline_uncertainty = roi.arg()
+                    roi_center = roi.center
+                    # roi_center = np.flip(roi.center, 0)
+                    # print('updated for roi', i)
                     self.roi_selected = i
-                    # print(self.roi_selected)
-                    # roi_center = [random.randint(0 + self.window_sz[1]/2, img.shape[1] - self.window_sz[1]/2), random
+                # time.sleep(2)
+            # print(self.roi_selected)
 
         return [roi_center[0] - self.window_sz[0]/2, roi_center[1] - self.window_sz[1]/2, self.window_sz[0], self.window_sz[1]]
 
@@ -234,7 +263,7 @@ class AttentionModel:
         else:
             if self.roi_selected is not None:
                 self.rois[self.roi_selected].undetected = True
-
+                print('nothing detected on roi', self.roi_selected)
         self.prop_uncertainty()
         self.roi_selected = None
 
