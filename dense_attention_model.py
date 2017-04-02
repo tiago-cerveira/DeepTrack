@@ -42,7 +42,7 @@ class ROI:
 
 
 class AttentionModel:
-    decision_threshold = 0.0
+    decision_threshold = 0.05
     dist_threshold = 20
     min_scale_threshold = 0.7
     max_scale_threshold = 1.3
@@ -60,7 +60,7 @@ class AttentionModel:
 
         self.roi_selected = None
 
-        self.old_gray = cv2.resize(init_img, (0, 0), fx=1.0, fy=1.0)
+        self.old_gray = cv2.resize(init_img, (0, 0), fx=0.25, fy=0.25)
         self.old_gray = cv2.cvtColor(self.old_gray, cv2.COLOR_BGR2GRAY)
 
     def create_rois(self, n_rows, n_cols):
@@ -101,10 +101,11 @@ class AttentionModel:
                 # time.sleep(2)
 
     def compute_optical_flow(self, frame):
-        frame_gray = cv2.resize(frame, (0, 0), fx=1.0, fy=1.0)
+        frame_gray = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         frame_gray = cv2.cvtColor(frame_gray, cv2.COLOR_BGR2GRAY)
 
         self.flow = cv2.calcOpticalFlowFarneback(self.old_gray, frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        self.flow = cv2.resize(self.flow, (0, 0), fx=4.0, fy=4.0)
         max_val = np.max(self.flow)
         # print(max_val)
 
