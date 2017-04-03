@@ -60,7 +60,7 @@ class AttentionModel:
 
         self.roi_selected = None
 
-        self.old_gray = cv2.resize(init_img, (0, 0), fx=0.25, fy=0.25)
+        self.old_gray = cv2.resize(init_img, (0, 0), fx=0.20, fy=0.20)
         self.old_gray = cv2.cvtColor(self.old_gray, cv2.COLOR_BGR2GRAY)
 
     def create_rois(self, n_rows, n_cols):
@@ -101,11 +101,11 @@ class AttentionModel:
                 # time.sleep(2)
 
     def compute_optical_flow(self, frame):
-        frame_gray = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        frame_gray = cv2.resize(frame, (0, 0), fx=0.20, fy=0.20)
         frame_gray = cv2.cvtColor(frame_gray, cv2.COLOR_BGR2GRAY)
 
         self.flow = cv2.calcOpticalFlowFarneback(self.old_gray, frame_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-        self.flow = cv2.resize(self.flow, (0, 0), fx=4.0, fy=4.0)
+        self.flow = cv2.resize(self.flow, (0, 0), fx=5.0, fy=5.0)
         max_val = np.max(self.flow)
         # print(max_val)
 
@@ -161,7 +161,6 @@ class AttentionModel:
                 if area_abs is not None:
                     area_rel = area_abs / np.prod(roi.window_sz)
                     # print('area_rel', area_rel)
-                    # TODO: Careful if should sum or subtract
                     uncert_prop[i, :] += (area_rel * roi_mov.uncertainty, area_rel)
             # print(uncert_prop)
             # print()
@@ -236,6 +235,7 @@ class AttentionModel:
                     print(round(dist, 1), round(float(detection[3]) / truth[3], 2),
                           round(float(detection[4]) / truth[4], 2))
 
+                    # in case the detection is off target
                     if dist > self.dist_threshold or \
                                             float(detection[3]) / truth[3] < self.min_scale_threshold or \
                                             float(detection[3]) / truth[3] > self.max_scale_threshold or \

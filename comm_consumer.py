@@ -4,15 +4,16 @@ import zmq
 
 class Consumer:
 
-    def __init__(self, port, topicfilter=None):
+    def __init__(self, port, topicfilter=None, bind=False):
 
         # Socket to talk to server
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.SUB)
 
-        self.socket.connect("tcp://127.0.0.101:%s" % port)
-        # self.socket.connect("tcp://127.0.0.101:5553")
-
+        if bind:
+            self.socket.bind("tcp://127.0.0.101:%s" % port)
+        else:
+            self.socket.connect("tcp://127.0.0.101:%s" % port)
 
         self.socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
 
@@ -35,3 +36,15 @@ class Consumer:
     def close(self):
         self.socket.close()
         self.context.term()
+
+
+def main():
+    sub = Consumer(5000, 'VIP', bind=True)
+
+    while True:
+        msg = sub.recv_msg()
+        print msg
+
+
+if __name__ == "__main__":
+    main()

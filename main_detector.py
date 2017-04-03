@@ -14,7 +14,7 @@ import dense_attention_model
 
 class InitParams:
     def __init__(self):
-        self.sequence = 'lanchaArgos_clip3'
+        self.sequence = 'bigShipHighAlt_clip2'
         self.video_path = '/home/tiago/maritime_data_seq/' + self.sequence
         self.groundtruth_file = 'groundtruth_rect_detection.txt'
 
@@ -31,8 +31,8 @@ def main():
     params = InitParams()
 
     pub = Publisher('5551')
-    sub1 = Consumer('5552', 'bb')
-    sub2 = Consumer('5552', 'alive')
+    sub1 = Consumer('5552', 'bb', bind=True)
+    sub2 = Consumer('5553', 'alive', bind=True)
 
     # load ground truth file and images files
     groundtruth, img_seq = load_video_sequence(params.groundtruth_file, params.video_path)
@@ -183,6 +183,7 @@ def main():
             fp.write(str(img_index) + ' ' + str(detections[0][1:-1]) + '\n')
 
     pub.send('kill', 'all')
+    print('killed all trackers')
     fp.close()
 
 

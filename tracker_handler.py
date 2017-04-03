@@ -81,14 +81,15 @@ def main():
 
     # results = np.zeros((len(img_seq), 4))
     # time.sleep(0.5)
-    pub = Publisher('5552')
+    pub1 = Publisher('5552', bind=False)
+    pub2 = Publisher('5553', bind=False)
     sub1 = Consumer('5551', 'next_img')
     sub2 = Consumer('5551', 'kill')
     sub3 = Consumer('5551', 'update')
 
     # this need to go!
     time.sleep(0.4)
-    pub.send('alive', params.id)
+    pub2.send('alive', params.id)
 
     starting = True
 
@@ -112,21 +113,6 @@ def main():
             if split_msg[0] == params.id:
                 print("tracker received update command, now exiting")
                 break
-                # print("SHOULD BE UPDATING")
-                # params.frame = 0
-                #
-                # # Initial position
-                # pos = np.array([int(split_msg[2]), int(split_msg[1])])
-                # target_sz = np.array([int(split_msg[4]), int(split_msg[3])])
-                # # params.init_pos = np.floor(pos + np.floor(target_sz / 2))
-                #
-                # # Current position
-                # params.pos = params.init_pos
-                #
-                # # Size of target
-                # # params.target_size = np.floor(target_sz)
-                #
-                # tracker1.update_tracker((int(split_msg[1]), int(split_msg[2])), (int(split_msg[3]), int(split_msg[4])))
 
         # Initialize the tracker using the first frame
         if params.frame == 0:
@@ -158,11 +144,12 @@ def main():
 
         params.frame += 1
         # print("tracker side:", str((cvrect).astype(np.int)))
-        pub.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0], int(results[4]))))
+        pub1.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0], int(results[4]))))
 
     # np.savetxt('results.txt', results, delimiter=',', fmt='%d')
-    pub.send('alive', 'False')
-    pub.close()
+    pub2.send('alive', 'False')
+    pub1.close()
+    pub2.close()
     sub1.close()
     sub2.close()
     sub3.close()
