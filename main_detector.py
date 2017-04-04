@@ -57,7 +57,7 @@ def main():
                 # print('img_index ({}) grd frame ({})'.format(img_index,
                 #                                              groundtruth[params.num_detections]))
 
-                if groundtruth[params.num_detections][6] > 0.95:
+                if groundtruth[params.num_detections][6] > 0.98:
                     print("detection on frame", img_index)
 
                     # initialize tracker on previous detection
@@ -124,6 +124,7 @@ def main():
                             # print("sending index:", img_index)
                             params.num_detections += 1
                             params.tracker_counter += 1
+                            params.num_trackers += 1
                             pub.send('next_img', str(img_index))
                     elif rst == 'DELETE':
                         print("DELETE")
@@ -177,14 +178,15 @@ def main():
                 pub.send('next_img', '0')
                 pub.send('kill', str(detections[0][0]))
                 params.num_trackers -= 1
-                params.tracker_counter += 1
+                # params.tracker_counter += 1
                 sub2.recv_msg()
+                print("received confirmation")
 
             fp.write(str(img_index) + ' ' + str(detections[0][1:-1]) + '\n')
 
     pub.send('kill', 'all')
-    print('killed all trackers')
     fp.close()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

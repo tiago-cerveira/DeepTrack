@@ -92,6 +92,7 @@ def main():
     pub2.send('alive', params.id)
 
     starting = True
+    blocked = False
 
     print("new tracker is ready to consume messages")
     while True:
@@ -111,7 +112,7 @@ def main():
         if msg is not False:
             split_msg = msg.split()
             if split_msg[0] == params.id:
-                print("tracker received update command, now exiting")
+                print("tracker " + params.id + " received update command, now exiting")
                 break
 
         # Initialize the tracker using the first frame
@@ -125,7 +126,7 @@ def main():
         else:
             results, lost, xtf = tracker1.detect(img)  # Detect the target in the next frame
             if not lost:
-                tracker1.train(img, False, xtf)  # Update the model with the new infomation
+                tracker1.train(img, False, xtf)  # Update the model with the new information
         # print(results)
         cvrect = np.array((results[1] - results[3] / 2,
                            results[0] - results[2] / 2,
@@ -144,7 +145,11 @@ def main():
 
         params.frame += 1
         # print("tracker side:", str((cvrect).astype(np.int)))
-        pub1.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0], int(results[4]))))
+        if not blocked:
+            pub1.send('bb', params.id + ' ' + str((cvrect[0].astype(int), cvrect[1].astype(int), target_sz[1], target_sz[0], int(results[4]))))
+
+        if results[4] < 5:
+            blocked = True
 
     # np.savetxt('results.txt', results, delimiter=',', fmt='%d')
     pub2.send('alive', 'False')

@@ -218,9 +218,10 @@ class AttentionModel:
                         truth[2] > roi[1] and \
                                 truth[1] + truth[3] < roi[0] + roi[2] and \
                                 truth[2] + truth[4] < roi[1] + roi[3] and \
-                        truth_line[6] > 0.90:
+                        truth_line[6] > 0.95:
 
             for detection in detections:
+                # TODO: Check if there are multiple detections inside of box, in which case GTFO
                 # there is also a tracker on the attention box
                 if detection[1] > roi[0] and \
                                 detection[2] > roi[1] and \
@@ -229,6 +230,7 @@ class AttentionModel:
                     if self.roi_selected is not None:
                         self.rois[self.roi_selected].detected = True
 
+                    rst = 'prev_UPDATE'
                     a = np.array((detection[1] + detection[3] / 2, detection[2] + detection[4] / 2))
                     b = np.array((truth[1] + truth[3] / 2, truth[2] + truth[4] / 2))
                     dist = np.linalg.norm(a - b)
@@ -237,20 +239,27 @@ class AttentionModel:
 
                     # in case the detection is off target
                     if dist > self.dist_threshold or \
-                                            float(detection[3]) / truth[3] < self.min_scale_threshold or \
-                                            float(detection[3]) / truth[3] > self.max_scale_threshold or \
-                                            float(detection[4]) / truth[4] < self.min_scale_threshold or \
-                                            float(detection[4]) / truth[4] > self.max_scale_threshold:
+                            float(detection[3]) / truth[3] < self.min_scale_threshold or \
+                            float(detection[3]) / truth[3] > self.max_scale_threshold or \
+                            float(detection[4]) / truth[4] < self.min_scale_threshold or \
+                            float(detection[4]) / truth[4] > self.max_scale_threshold:
                         rst = 'UPDATE'
                         id = str(detection[0])
                         bb = str(truth[1]) + ' ' + str(truth[2]) + ' ' + str(truth[3]) + ' ' + str(truth[4])
                         # return rst, id, bb
 
-
-
-                        # there is a detection but not a tracker
-                        # rst = 'INSERT'
-                        # bb = str(truth[1]) + ' ' + str(truth[2]) + ' ' + str(truth[3]) + ' ' + str(truth[4])
+            # there is a detection but not a tracker
+            if rst is None:
+                min_dist = 0
+                for detection in detections:
+                    a = np.array((detection[1] + detection[3] / 2, detection[2] + detection[4] / 2))
+                    b = np.array((truth[1] + truth[3] / 2, truth[2] + truth[4] / 2))
+                    dist = np.linalg.norm(a - b)
+                    if dist < min_dist:
+                        min_dist = dist
+                if min_dist > 50:
+                    rst = 'INSERT'
+                    bb = str(truth[1]) + ' ' + str(truth[2]) + ' ' + str(truth[3]) + ' ' + str(truth[4])
 
         # there is a tracker but not a detection on the box
         elif detections[0][1] > roi[0] and \
