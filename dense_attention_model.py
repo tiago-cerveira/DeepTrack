@@ -53,7 +53,6 @@ class AttentionModel:
     def __init__(self, init_img):
         n_rows = np.floor(float(init_img.shape[0]) / self.window_sz[0]).astype(int)
         n_cols = np.floor(float(init_img.shape[1])/self.window_sz[1]).astype(int)
-
         # print('nrows', n_rows, 'ncols', n_cols)
 
         self.create_rois(n_rows, n_cols)
