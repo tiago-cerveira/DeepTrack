@@ -1,4 +1,3 @@
-
 # Created by https://www.gitignore.io/api/python,pycharm
 
 ### PyCharm ###
@@ -155,5 +154,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+.pyc
 
 # End of https://www.gitignore.io/api/python,pycharm
